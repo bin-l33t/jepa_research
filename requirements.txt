@@ -1,0 +1,6 @@
+torch
+torchvision
+pandas
+matplotlib
+seaborn
+google-generativeai
