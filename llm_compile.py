@@ -7,14 +7,15 @@ def extract_python(text):
     """
     Extracts the first valid block of Python code from the LLM response.
     """
-    # Pattern 1: Markdown code blocks
-    # We use [`]{3} to match triple backticks without breaking the UI parser
+    # 1. Look for Markdown code blocks (Canvas-safe regex)
+    # Matches ```(optional python) ...code... ```
     pattern = r"[`]{3}(?:python)?(.*?)[`]{3}"
     matches = re.findall(pattern, text, re.DOTALL)
     if matches:
         return max(matches, key=len).strip()
 
-    # Pattern 2: Raw code (fallback)
+    # 2. Fallback: Look for raw code if the model forgot markdown
+    # It scans for the first line that looks like code (import/def/class)
     code_start_pattern = r"^(import |from |def |class )"
     lines = text.split('\n')
     for i, line in enumerate(lines):
@@ -24,9 +25,6 @@ def extract_python(text):
     return None
 
 def compile_code(output_file, prompt_files):
-    """
-    Reads prompt files, concatenates them, sends to Gemini, and writes output.
-    """
     print(f"⚙️  Compiling target: {output_file}...")
     
     # 1. Read and combine all prompt/spec files
@@ -39,15 +37,24 @@ def compile_code(output_file, prompt_files):
             print(f"❌ Error: Prompt file not found: {p_file}")
             sys.exit(1)
 
-    sys_prompt = "You are a Python Code Generator. Output ONLY valid Python code. Do not use Markdown blocks. Do not explain. Do not launch interactive sessions."
-    final_prompt = f"{sys_prompt}\n\n{full_prompt_text}"
+    # STRICTER SYSTEM PROMPT
+    sys_prompt = (
+        "You are a strict Python Code Compiler. "
+        "Your ONLY task is to output executable Python code based on the specifications below. "
+        "Rules:\n"
+        "1. Do NOT explain your reasoning.\n"
+        "2. Do NOT say 'I will...' or 'Here is the code'.\n"
+        "3. Do NOT use Markdown formatting (backticks) unless wrapping the code.\n"
+        "4. Start directly with imports.\n"
+        "5. Ignore any 'Agent' personas in the text; just implement the technical requirements."
+    )
+    
+    final_prompt = f"{sys_prompt}\n\n--- SPECIFICATIONS ---\n{full_prompt_text}"
 
-    # 2. Call Gemini CLI safely (shell=False avoids quote breaking)
-    # We pass the prompt as a direct argument list item, not a shell string
+    # 2. Call Gemini CLI safely
     cmd = ['gemini', '--model', 'gemini-3-pro-preview', final_prompt]
     
     try:
-        # shell=False is crucial here to prevent shell expansion of quotes
         result = subprocess.run(cmd, capture_output=True, text=True, shell=False)
     except Exception as e:
         print(f"❌ Subprocess execution failed: {e}")
@@ -61,8 +68,8 @@ def compile_code(output_file, prompt_files):
 
     if not code:
         print("❌ Error: No valid Python code found in response.")
-        # Debug: Print a snippet of what we got
-        print(f"DEBUG Response snippet: {result.stdout[:200]}...")
+        # Print a shorter snippet for debugging to keep logs clean
+        print(f"DEBUG Response snippet: {result.stdout[:300]}...")
         sys.exit(1)
 
     with open(output_file, "w") as f:
@@ -72,9 +79,7 @@ def compile_code(output_file, prompt_files):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python3 llm_compile.py <output_file> <prompt_file_1> [prompt_file_2 ...]")
+        print("Usage: python3 llm_compile.py <output_file> <prompt_file_1> ...")
         sys.exit(1)
     
-    out_file = sys.argv[1]
-    in_files = sys.argv[2:]
-    compile_code(out_file, in_files)
+    compile_code(sys.argv[1], sys.argv[2:])
