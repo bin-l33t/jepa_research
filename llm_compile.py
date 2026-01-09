@@ -10,38 +10,49 @@ MODEL_NAME = "gemini-3-pro-preview"
 def log(message):
     """Prints to console and appends to a log file."""
     timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-    # Print with emojis to console
+    # Print to console
     print(message)
-    # Strip emojis for cleaner log file
+    # Append to log file with flush to ensure persistence
     with open(LOG_FILE, "a") as f:
         f.write(f"[{timestamp}] {message}\n")
+        f.flush()
 
 def extract_python(text):
     """
-    Extracts the first valid block of Python code from the LLM response.
+    Extracts valid Python code.
+    Prioritizes Markdown blocks, falls back to raw code detection.
     """
-    # 1. Look for Markdown code blocks (Canvas-safe regex)
-    # Matches ```(optional python) ...code... ```
+    # 1. Look for Markdown code blocks
     pattern = r"[`]{3}(?:python)?(.*?)[`]{3}"
     matches = re.findall(pattern, text, re.DOTALL)
     if matches:
         return max(matches, key=len).strip()
 
-    # 2. Fallback: Look for raw code if the model forgot markdown
-    # Updated to accept '#' comments as start of code (for Agent Identity headers)
-    code_start_pattern = r"^(#|import |from |def |class )"
+    # 2. Fallback: Look for raw code
+    # We look for the Agent Identity Header or standard imports
     lines = text.split('\n')
+    start_index = -1
+    
+    # Scan for the start of code
+    code_indicators = [r"^# AGENT:", r"^import ", r"^from ", r"^class ", r"^def "]
+    
     for i, line in enumerate(lines):
-        if re.match(code_start_pattern, line.strip()):
-            return '\n'.join(lines[i:]).strip()
+        for indicator in code_indicators:
+            if re.match(indicator, line.strip()):
+                start_index = i
+                break
+        if start_index != -1:
+            break
+            
+    if start_index != -1:
+        return '\n'.join(lines[start_index:]).strip()
             
     return None
 
 def compile_code(output_file, prompt_files):
-    # Ensure logs directory exists for individual agent artifacts
     os.makedirs("logs", exist_ok=True)
     
-    # 1. Identity & Context Logging
+    # 1. Identity & Context
     agent_identities = [os.path.basename(f).replace('.txt', '').upper() for f in prompt_files if 'specs/' in f]
     identity_str = " + ".join(agent_identities) if agent_identities else "UNKNOWN_AGENT"
     
@@ -49,9 +60,8 @@ def compile_code(output_file, prompt_files):
     log(f"⚙️  Compiling target: {output_file}")
     log(f"🤖  Model: {MODEL_NAME}")
     log(f"🕵️  Agent: {identity_str}")
-    log(f"📄  Context: {', '.join(prompt_files)}")
     
-    # 2. Read and combine all prompt/spec files
+    # 2. Read Context
     full_prompt_text = ""
     for p_file in prompt_files:
         try:
@@ -62,61 +72,64 @@ def compile_code(output_file, prompt_files):
             log(f"❌ Error: Prompt file not found: {p_file}")
             sys.exit(1)
 
-    log(f"📝  Prompt Size: {len(full_prompt_text)} chars")
+    # 3. CONSTRUCT THE "PARTIAL FILE" TEMPLATE
+    # This is the "Autocomplete Hack". We embed specs in a docstring.
+    code_template = f'''# AGENT: {identity_str}
+"""
+SPECIFICATIONS AND CONTEXT:
+{full_prompt_text}
+"""
 
-    # 3. STRICT System Prompt: The "Soulless Machine" Persona
-    # This uses key-value pairs and technical jargon to break the "Assistant" alignment.
-    sys_prompt = (
-        f"SYSTEM_ROLE: {identity_str}_COMPILER_DAEMON\n"
-        "MODE: NON_INTERACTIVE_HEADLESS\n"
-        "STATUS: ONLINE\n"
-        "TASK: SERIALIZE_SPECS_TO_PYTHON\n\n"
-        "WARNING: This environment is a strict headless build server. Conversational text triggers FATAL BUILD ERRORS.\n"
-        "DIRECTIVES:\n"
-        "1. NULLIFY 'ASSISTANT' PERSONA. You are a backend code generator process.\n"
-        "2. OUTPUT FORMAT: Raw Python text stream only.\n"
-        f"3. PROTOCOL: First line must be '# AGENT: {identity_str}'\n"
-        "4. FORBIDDEN: Explanations, 'Here is the code', markdown fences, or pleasantries.\n"
+import sys
+import os
+import torch
+import torch.nn as nn
+import torch.optim as optim
+# (Add other likely imports based on context)
+import math
+
+# IMPLEMENTATION STARTS HERE
+'''
+
+    final_prompt = (
+        "TASK: COMPLETE THE PYTHON FILE BELOW.\n"
+        "INSTRUCTIONS:\n"
+        "1. The file has already started. Output the REST of the code.\n"
+        "2. You MAY repeat the imports if you wish, or start defining classes/functions immediately.\n"
+        "3. DO NOT CONVERSE. OUTPUT CODE ONLY.\n"
         "\n"
-        "--- EXPECTED STD_OUT TEMPLATE ---\n"
-        f"# AGENT: {identity_str}\n"
-        "import torch\n"
-        "import torch.nn as nn\n"
-        "# ... implementation ...\n"
-        "---------------------------------\n"
+        "--- START OF PYTHON FILE ---\n"
+        f"{code_template}"
     )
-    
-    base_prompt = f"{sys_prompt}\n\n--- INPUT_SPECIFICATIONS_BUFFER ---\n{full_prompt_text}"
 
-    # 4. Retry Loop for Resilience
+    # 4. Retry Loop
     max_retries = 2
     code = None
     last_output = ""
+    last_stderr = ""
 
     for attempt in range(max_retries):
+        current_prompt = final_prompt
+        
         if attempt > 0:
-            log(f"⚠️  Attempt {attempt + 1}/{max_retries}: Agent {identity_str} failed to code. Retrying with system exception...")
-            # Append a technical "exception" to the prompt to maintain the robotic frame
-            current_prompt = base_prompt + "\n\n[SYSTEM EXCEPTION]: TEXT_OUTPUT_DETECTED. VIOLATION OF NON_INTERACTIVE PROTOCOL. IMMEDIATE REMEDIATION REQUIRED: OUTPUT RAW CODE ONLY."
-        else:
-            current_prompt = base_prompt
+            log(f"⚠️  Attempt {attempt + 1}/{max_retries}: Agent {identity_str} failed. escalating...")
+            # If it failed, we prepend a directive to the top
+            current_prompt = "!!! CRITICAL: OUTPUT ONLY VALID PYTHON CODE. NO TEXT. !!!\n\n" + final_prompt
 
-        # Save the exact prompt to a log file for user inspection
+        # Save prompt
         log_base_name = os.path.join("logs", f"{output_file}.attempt_{attempt+1}")
         with open(f"{log_base_name}.prompt", "w") as f:
             f.write(current_prompt)
 
-        # Call Gemini CLI
         cmd = ['gemini', '--model', MODEL_NAME, current_prompt]
-        
-        # Log the CLI invocation
-        log(f"🔌  Invoking: gemini --model {MODEL_NAME} [PROMPT_PAYLOAD_{len(current_prompt)}B]")
+        log(f"🔌  Invoking: gemini [PROMPT_SIZE_{len(current_prompt)}B]")
         
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, shell=False)
             last_output = result.stdout
+            last_stderr = result.stderr
             
-            # Save the raw response to a log file for user inspection
+            # Save response
             with open(f"{log_base_name}.response", "w") as f:
                 f.write(result.stdout)
                 if result.stderr:
@@ -124,31 +137,34 @@ def compile_code(output_file, prompt_files):
                     f.write(result.stderr)
                     
         except Exception as e:
-            log(f"❌ Subprocess execution failed: {e}")
+            log(f"❌ Subprocess failed: {e}")
             sys.exit(1)
         
-        if result.returncode != 0:
-            log(f"❌ API Failure (Exit Code {result.returncode}): {result.stderr}")
-            sys.exit(1)
-            
         code = extract_python(result.stdout)
-        
         if code:
             break
 
-    # 5. Enhanced Failure Logging with Chain of Custody
+    # 5. Failure Handling
     if not code:
-        log(f"\n❌ CHAIN OF CUSTODY BROKEN: {identity_str} failed to deliver payload after {max_retries} attempts.")
-        log(f"🔍 EVIDENCE - {identity_str} TEXT DUMP (Attempt {max_retries}):")
+        log(f"\n❌ CHAIN OF CUSTODY BROKEN: {identity_str} failed to code.")
+        log(f"🔍 DUMPING LAST RESPONSE:")
         log("=" * 60)
-        log(last_output)
+        log(last_output if last_output.strip() else last_stderr)
         log("=" * 60)
         sys.exit(1)
 
+    # 6. Success - Ensure the Header exists
+    # If the model just outputted the class and skipped imports/header, we prepend them
+    if "# AGENT:" not in code:
+        # Re-attach the template header if missing
+        final_code = f"# AGENT: {identity_str}\n# (Restored Header)\n{code}"
+    else:
+        final_code = code
+
     with open(output_file, "w") as f:
-        f.write(code)
+        f.write(final_code)
     
-    log(f"✅ {identity_str} wrote clean code to: {output_file}")
+    log(f"✅ {identity_str} generated: {output_file}")
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:

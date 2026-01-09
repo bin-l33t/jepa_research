@@ -1,0 +1,2 @@
+I will read `jepa_core.py` to understand the classes `SIGRegLoss` and `VectorFlow` before writing the tests.
+I will create the `test_jepa.py` file with the required unit tests for `SIGRegLoss` and `VectorFlow`.

@@ -1,0 +1,39 @@
+import unittest
+from jepa_core import VectorFlow, SIGRegLoss
+
+class TestJEPA(unittest.TestCase):
+    def setUp(self):
+        self.input_dim = 128
+        self.batch_size = 32
+        self.proj_dim = 64
+
+    def test_vector_flow_shapes(self):
+        """Check VectorFlow output shapes match input shapes."""
+        # Use explicit output_dim to match input_dim for shape check
+        model = VectorFlow(input_dim=self.input_dim, output_dim=self.input_dim)
+        x = torch.randn(self.batch_size, self.input_dim)
+        y = model(x)
+        self.assertEqual(y.shape, x.shape, f"Expected shape {x.shape}, got {y.shape}")
+
+    def test_sigreg_loss_gaussian(self):
+        """Test SIGRegLoss on Gaussian input (torch.randn)."""
+        loss_fn = SIGRegLoss(input_dim=self.input_dim, proj_dim=self.proj_dim)
+        z = torch.randn(self.batch_size, self.input_dim)
+        loss = loss_fn(z)
+        
+        self.assertIsInstance(loss.item(), float)
+        self.assertFalse(torch.isnan(loss).any(), "Loss should not be NaN")
+        self.assertFalse(torch.isinf(loss).any(), "Loss should not be Inf")
+
+    def test_sigreg_loss_uniform(self):
+        """Test SIGRegLoss on Uniform input (torch.rand)."""
+        loss_fn = SIGRegLoss(input_dim=self.input_dim, proj_dim=self.proj_dim)
+        z = torch.rand(self.batch_size, self.input_dim)
+        loss = loss_fn(z)
+        
+        self.assertIsInstance(loss.item(), float)
+        self.assertFalse(torch.isnan(loss).any(), "Loss should not be NaN")
+        self.assertFalse(torch.isinf(loss).any(), "Loss should not be Inf")
+
+if __name__ == '__main__':
+    unittest.main()

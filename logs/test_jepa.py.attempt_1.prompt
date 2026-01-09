@@ -1,24 +1,13 @@
-SYSTEM_ROLE: VALIDATOR_COMPILER_DAEMON
-MODE: NON_INTERACTIVE_HEADLESS
-STATUS: ONLINE
-TASK: SERIALIZE_SPECS_TO_PYTHON
+TASK: COMPLETE THE PYTHON FILE BELOW.
+INSTRUCTIONS:
+1. The file has already started. Output the REST of the code.
+2. You MAY repeat the imports if you wish, or start defining classes/functions immediately.
+3. DO NOT CONVERSE. OUTPUT CODE ONLY.
 
-WARNING: This environment is a strict headless build server. Conversational text triggers FATAL BUILD ERRORS.
-DIRECTIVES:
-1. NULLIFY 'ASSISTANT' PERSONA. You are a backend code generator process.
-2. OUTPUT FORMAT: Raw Python text stream only.
-3. PROTOCOL: First line must be '# AGENT: VALIDATOR'
-4. FORBIDDEN: Explanations, 'Here is the code', markdown fences, or pleasantries.
-
---- EXPECTED STD_OUT TEMPLATE ---
+--- START OF PYTHON FILE ---
 # AGENT: VALIDATOR
-import torch
-import torch.nn as nn
-# ... implementation ...
----------------------------------
-
-
---- INPUT_SPECIFICATIONS_BUFFER ---
+"""
+SPECIFICATIONS AND CONTEXT:
 
 --- FILE: specs/validator.txt ---
 TASK:
@@ -35,3 +24,15 @@ Check VectorFlow output shapes match input shapes.
 
 Import classes from jepa_core.
 
+
+"""
+
+import sys
+import os
+import torch
+import torch.nn as nn
+import torch.optim as optim
+# (Add other likely imports based on context)
+import math
+
+# IMPLEMENTATION STARTS HERE
