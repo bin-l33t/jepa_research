@@ -46,17 +46,21 @@ def compile_code(output_file, prompt_files):
 
     print(f"📝  Prompt Size: {len(full_prompt_text)} chars")
 
-    # 3. STRICT System Prompt with Identity Injection and Examples
+    # 3. STRICT System Prompt: The "Soulless Machine" Persona
+    # This uses key-value pairs and technical jargon to break the "Assistant" alignment.
     sys_prompt = (
-        f"ACT AS: {identity_str} Python Compiler.\n"
-        "OBJECTIVE: Compiling specifications into executable Python code.\n"
-        "CRITICAL RULES:\n"
-        "1. NO CHAT. Do NOT say 'I will', 'Here is', 'Sure', or explain the code.\n"
-        "2. OUTPUT ONLY CODE. Text causes build failures.\n"
-        f"3. HEADER: First line MUST be: # AGENT: {identity_str}\n"
-        "4. IMPORTS: Start immediately after the header.\n"
+        f"SYSTEM_ROLE: {identity_str}_COMPILER_DAEMON\n"
+        "MODE: NON_INTERACTIVE_HEADLESS\n"
+        "STATUS: ONLINE\n"
+        "TASK: SERIALIZE_SPECS_TO_PYTHON\n\n"
+        "WARNING: This environment is a strict headless build server. Conversational text triggers FATAL BUILD ERRORS.\n"
+        "DIRECTIVES:\n"
+        "1. NULLIFY 'ASSISTANT' PERSONA. You are a backend code generator process.\n"
+        "2. OUTPUT FORMAT: Raw Python text stream only.\n"
+        f"3. PROTOCOL: First line must be '# AGENT: {identity_str}'\n"
+        "4. FORBIDDEN: Explanations, 'Here is the code', markdown fences, or pleasantries.\n"
         "\n"
-        "--- EXAMPLE OF CORRECT OUTPUT ---\n"
+        "--- EXPECTED STD_OUT TEMPLATE ---\n"
         f"# AGENT: {identity_str}\n"
         "import torch\n"
         "import torch.nn as nn\n"
@@ -64,29 +68,46 @@ def compile_code(output_file, prompt_files):
         "---------------------------------\n"
     )
     
-    final_prompt = f"{sys_prompt}\n\n--- SPECIFICATIONS ---\n{full_prompt_text}"
+    base_prompt = f"{sys_prompt}\n\n--- INPUT_SPECIFICATIONS_BUFFER ---\n{full_prompt_text}"
 
-    # 4. Call Gemini CLI
-    cmd = ['gemini', '--model', 'gemini-3-pro-preview', final_prompt]
-    
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, shell=False)
-    except Exception as e:
-        print(f"❌ Subprocess execution failed: {e}")
-        sys.exit(1)
-    
-    if result.returncode != 0:
-        print(f"❌ API Failure: {result.stderr}")
-        sys.exit(1)
+    # 4. Retry Loop for Resilience
+    max_retries = 2
+    code = None
+    last_output = ""
+
+    for attempt in range(max_retries):
+        if attempt > 0:
+            print(f"⚠️  Attempt {attempt + 1}/{max_retries}: Agent {identity_str} failed to code. Retrying with system exception...")
+            # Append a technical "exception" to the prompt to maintain the robotic frame
+            current_prompt = base_prompt + "\n\n[SYSTEM EXCEPTION]: TEXT_OUTPUT_DETECTED. VIOLATION OF NON_INTERACTIVE PROTOCOL. IMMEDIATE REMEDIATION REQUIRED: OUTPUT RAW CODE ONLY."
+        else:
+            current_prompt = base_prompt
+
+        # Call Gemini CLI
+        cmd = ['gemini', '--model', 'gemini-3-pro-preview', current_prompt]
         
-    code = extract_python(result.stdout)
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, shell=False)
+            last_output = result.stdout
+        except Exception as e:
+            print(f"❌ Subprocess execution failed: {e}")
+            sys.exit(1)
+        
+        if result.returncode != 0:
+            print(f"❌ API Failure: {result.stderr}")
+            sys.exit(1)
+            
+        code = extract_python(result.stdout)
+        
+        if code:
+            break
 
     # 5. Enhanced Failure Logging with Chain of Custody
     if not code:
-        print(f"\n❌ CHAIN OF CUSTODY BROKEN: {identity_str} failed to deliver payload.")
-        print(f"🔍 EVIDENCE - {identity_str} TEXT DUMP:")
+        print(f"\n❌ CHAIN OF CUSTODY BROKEN: {identity_str} failed to deliver payload after {max_retries} attempts.")
+        print(f"🔍 EVIDENCE - {identity_str} TEXT DUMP (Attempt {max_retries}):")
         print("=" * 60)
-        print(result.stdout)
+        print(last_output)
         print("=" * 60)
         sys.exit(1)
 
