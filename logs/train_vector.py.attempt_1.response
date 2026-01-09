@@ -1,0 +1,19 @@
+I will read `jepa_core.py` to understand the model architecture and available loss functions.
+I will read `test_jepa.py` to understand how the `jepa_core` module is utilized and to check for any usage of `Agreement_Loss`.
+I will read `specs/architect.txt` to see if it defines `Agreement_Loss` and provides any other relevant details for the implementation.
+I will read `specs/math_context.txt` to see if it contains the definition of `Agreement_Loss`.
+I will read `analyze_results.py` to see if it reveals any expectations about the output files or the model's behavior, which might clarify the training setup.
+I will read `logs/train_vector.py.attempt_1.prompt` to see if it provides any additional context or clarification regarding the task and the expected implementation of `train_vector.py`.
+I will read `requirements.txt` to confirm if `torchvision` is listed as a dependency, which would support the assumption that it's available for use.
+I will write the `train_vector.py` script.
+This script will import necessary libraries, including `torch`, `torchvision`, and the custom `jepa_core` module.
+It will define a `train` function that:
+1.  Sets up the device (CUDA if available).
+2.  Prepares the CIFAR-10 dataset with appropriate transforms (including flattening).
+3.  Initializes the `VectorFlow` model and the `SIGRegLoss` and `CrossEntropyLoss` functions.
+4.  Configures the Adam optimizer.
+5.  Runs the training loop for 5 epochs, computing the combined loss and accuracy.
+6.  Logs metrics to a list and prints them every 50 steps.
+7.  Saves the logged metrics to `metrics.csv`.
+8.  Generates and saves a covariance matrix plot of the model outputs using `seaborn` and `matplotlib`.
+9.  Executes the `train` function if the script is run as the main module.

@@ -1,48 +1,59 @@
-```python
+I will read `jepa_core.py` to identify the class definitions and their initialization parameters for `SIGRegLoss` and `VectorFlow`, ensuring the unit tests I write match the actual implementation.
 import unittest
-from jepa_core import SIGRegLoss, VectorFlow
+from jepa_core import VectorFlow, SIGRegLoss
 
 class TestJEPA(unittest.TestCase):
     def setUp(self):
         self.batch_size = 32
-        self.dim = 64
+        self.in_dim = 64
+        self.proj_dim = 128
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     def test_sigreg_loss_gaussian(self):
-        """Test SIGRegLoss on Gaussian input (torch.randn)."""
-        x = torch.randn(self.batch_size, self.dim, device=self.device)
-        y = torch.randn(self.batch_size, self.dim, device=self.device)
+        """Test SIGRegLoss on Gaussian input (torch.randn)"""
+        loss_fn = SIGRegLoss(in_dim=self.in_dim, proj_dim=self.proj_dim).to(self.device)
+        input_tensor = torch.randn(self.batch_size, self.in_dim).to(self.device)
         
-        criterion = SIGRegLoss()
-        loss = criterion(x, y)
+        loss = loss_fn(input_tensor)
         
-        self.assertTrue(torch.isfinite(loss))
-        self.assertEqual(loss.ndim, 0)
+        # Check if loss is a scalar
+        self.assertEqual(loss.dim(), 0, "Loss should be a scalar")
+        # Check if loss is non-negative (since it's a sum of squares)
+        self.assertGreaterEqual(loss.item(), 0.0, "Loss should be non-negative")
 
     def test_sigreg_loss_uniform(self):
-        """Test SIGRegLoss on Uniform input (torch.rand)."""
-        x = torch.rand(self.batch_size, self.dim, device=self.device)
-        y = torch.rand(self.batch_size, self.dim, device=self.device)
+        """Test SIGRegLoss on Uniform input (torch.rand)"""
+        loss_fn = SIGRegLoss(in_dim=self.in_dim, proj_dim=self.proj_dim).to(self.device)
+        input_tensor = torch.rand(self.batch_size, self.in_dim).to(self.device)
         
-        criterion = SIGRegLoss()
-        loss = criterion(x, y)
+        loss = loss_fn(input_tensor)
         
-        self.assertTrue(torch.isfinite(loss))
-        self.assertEqual(loss.ndim, 0)
+        self.assertEqual(loss.dim(), 0, "Loss should be a scalar")
+        self.assertGreaterEqual(loss.item(), 0.0, "Loss should be non-negative")
 
-    def test_vector_flow_shapes(self):
-        """Check VectorFlow output shapes match input shapes."""
-        # Try instantiating with dim arg, fallback to no arg if necessary
-        try:
-            model = VectorFlow(self.dim).to(self.device)
-        except TypeError:
-            model = VectorFlow().to(self.device)
-            
-        x = torch.randn(self.batch_size, self.dim, device=self.device)
-        output = model(x)
+    def test_vectorflow_shapes(self):
+        """Check VectorFlow output shapes match input shapes (default behavior)"""
+        model = VectorFlow(in_dim=self.in_dim).to(self.device)
+        input_tensor = torch.randn(self.batch_size, self.in_dim).to(self.device)
         
-        self.assertEqual(output.shape, x.shape)
+        output = model(input_tensor)
+        
+        expected_shape = (self.batch_size, self.in_dim)
+        self.assertEqual(output.shape, expected_shape, 
+                         f"Expected shape {expected_shape}, but got {output.shape}")
+
+    def test_vectorflow_custom_shapes(self):
+        """Check VectorFlow output shapes with custom dimensions"""
+        hidden_dim = 32
+        out_dim = 16
+        model = VectorFlow(in_dim=self.in_dim, hidden_dim=hidden_dim, out_dim=out_dim).to(self.device)
+        input_tensor = torch.randn(self.batch_size, self.in_dim).to(self.device)
+        
+        output = model(input_tensor)
+        
+        expected_shape = (self.batch_size, out_dim)
+        self.assertEqual(output.shape, expected_shape, 
+                         f"Expected shape {expected_shape}, but got {output.shape}")
 
 if __name__ == '__main__':
     unittest.main()
-```

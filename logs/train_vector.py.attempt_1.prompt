@@ -1,0 +1,50 @@
+TASK: COMPLETE THE PYTHON FILE BELOW.
+INSTRUCTIONS:
+1. The file has already started. Output the REST of the code.
+2. You MAY repeat the imports if you wish, or start defining classes/functions immediately.
+3. DO NOT CONVERSE. OUTPUT CODE ONLY.
+
+--- START OF PYTHON FILE ---
+# AGENT: SCIENTIST
+"""
+SPECIFICATIONS AND CONTEXT:
+
+--- FILE: specs/scientist.txt ---
+TASK:
+Write a training script named 'train_vector.py'.
+Assume 'jepa_core.py' is valid.
+
+EXPERIMENT SETUP:
+
+Dataset: CIFAR-10
+
+Batch Size: 128
+
+Epochs: 5
+
+Loss: Agreement_Loss + 0.1 * SIGRegLoss
+
+Optimizer: Adam(1e-3)
+
+LOGGING:
+
+Print Epoch, Step, Loss, Agreement, SIGReg, Acc every 50 steps.
+
+Save metrics to 'metrics.csv'.
+
+Save a covariance matrix plot to 'covariance.png' at the end.
+
+Wrap main logic in if __name__ == '__main__': train().
+
+
+"""
+
+import sys
+import os
+import torch
+import torch.nn as nn
+import torch.optim as optim
+# (Add other likely imports based on context)
+import math
+
+# IMPLEMENTATION STARTS HERE

@@ -181,6 +181,24 @@ import math
     if "# AGENT:" not in final_code:
         final_code = f"# AGENT: {identity_str}\n{final_code}"
 
+    # CRITICAL FIX: Restore imports if missing (The "Autocomplete Paradox" Fix)
+    if "import torch" not in final_code:
+        standard_imports = (
+            "\nimport sys\n"
+            "import os\n"
+            "import torch\n"
+            "import torch.nn as nn\n"
+            "import torch.optim as optim\n"
+            "import math\n"
+        )
+        # Find the first newline to insert after the # AGENT header
+        first_newline = final_code.find('\n')
+        if first_newline != -1:
+            final_code = final_code[:first_newline+1] + standard_imports + final_code[first_newline+1:]
+        else:
+            # File is just the header? Append imports.
+            final_code = final_code + standard_imports
+
     with open(output_file, "w") as f:
         f.write(final_code)
     

@@ -1,3 +1,3 @@
-I will read the specification files to ensure I have the exact formulas for `SIGRegLoss` and the structure of `VectorFlow`.
-I will check the logs for previous attempts to find more context about the `SIGRegLoss` formula.
-I will write the `jepa_core.py` file with the specified `SIGRegLoss` and `VectorFlow` classes, ensuring the critical math requirement for matrix normalization is met.
+Reading specifications to extract the exact mathematical formulas for SIGRegLoss.
+Searching for usage or definition of SIGRegLoss in the codebase to infer its formula.
+Implementing `jepa_core.py` with `VectorFlow` and `SIGRegLoss` classes, adhering to the mathematical constraints for `SIGRegLoss` and standard MLP architecture for `VectorFlow`.

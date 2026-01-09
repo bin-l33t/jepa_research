@@ -1,0 +1,173 @@
+I will read `jepa_core.py` to identify the model and loss class definitions, and `specs/scientist.txt` to confirm the training specifications.
+I will read `test_jepa.py` to see if `Agreement_Loss` is used or defined there, which will help clarify the implementation requirements for `train_vector.py`.
+Based on the `jepa_core.py` analysis (which defines `VectorFlow` and `SIGRegLoss`) and the specifications, here is the completion of `train_vector.py`.
+
+```python
+import torchvision
+import torchvision.transforms as transforms
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+from jepa_core import VectorFlow, SIGRegLoss
+
+def train():
+    # Configuration
+    BATCH_SIZE = 128
+    EPOCHS = 5
+    LEARNING_RATE = 1e-3
+    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    # Ensure plots directory exists
+    os.makedirs('./plots', exist_ok=True)
+    
+    print(f"Using device: {DEVICE}")
+
+    # Data Preparation
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+
+    trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
+                                            download=True, transform=transform)
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=BATCH_SIZE,
+                                              shuffle=True, num_workers=2)
+
+    testset = torchvision.datasets.CIFAR10(root='./data', train=False,
+                                           download=True, transform=transform)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=BATCH_SIZE,
+                                             shuffle=False, num_workers=2)
+
+    # Model Setup
+    # CIFAR-10 images are 32x32x3 = 3072 flattened
+    in_dim = 3072
+    out_dim = 10 # 10 Classes
+    
+    model = VectorFlow(in_dim=in_dim, out_dim=out_dim).to(DEVICE)
+    
+    # Loss Definitions
+    # Agreement Loss -> CrossEntropy (Accuracy implies classification task)
+    agreement_criterion = nn.CrossEntropyLoss()
+    # SIGReg Loss -> Regularization on the output features
+    sigreg_criterion = SIGRegLoss(in_dim=out_dim).to(DEVICE)
+    
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    
+    # Metrics Storage
+    metrics_data = []
+
+    print("Starting training...")
+    global_step = 0
+    
+    for epoch in range(EPOCHS):
+        model.train()
+        running_loss = 0.0
+        running_agree = 0.0
+        running_sigreg = 0.0
+        correct = 0
+        total = 0
+        
+        # Reset running stats every 50 steps
+        step_loss = 0.0
+        step_agree = 0.0
+        step_sigreg = 0.0
+        step_correct = 0
+        step_total = 0
+        
+        for i, data in enumerate(trainloader, 0):
+            inputs, labels = data
+            # Flatten inputs for MLP
+            inputs = inputs.view(inputs.size(0), -1).to(DEVICE)
+            labels = labels.to(DEVICE)
+
+            optimizer.zero_grad()
+
+            # Forward
+            outputs = model(inputs)
+            
+            # Loss Calculation
+            loss_agree = agreement_criterion(outputs, labels)
+            loss_sigreg = sigreg_criterion(outputs)
+            
+            loss = loss_agree + 0.1 * loss_sigreg
+            
+            # Backward
+            loss.backward()
+            optimizer.step()
+
+            # Statistics
+            bs = labels.size(0)
+            _, predicted = torch.max(outputs.data, 1)
+            
+            step_loss += loss.item()
+            step_agree += loss_agree.item()
+            step_sigreg += loss_sigreg.item()
+            step_total += bs
+            step_correct += (predicted == labels).sum().item()
+            
+            global_step += 1
+            
+            if global_step % 50 == 0:
+                avg_loss = step_loss / 50
+                avg_agree = step_agree / 50
+                avg_sigreg = step_sigreg / 50
+                acc = 100 * step_correct / step_total
+                
+                print(f"Epoch {epoch+1}, Step {global_step}, Loss: {avg_loss:.4f}, "
+                      f"Agreement: {avg_agree:.4f}, SIGReg: {avg_sigreg:.4f}, Acc: {acc:.2f}%")
+                
+                metrics_data.append({
+                    'epoch': epoch + 1,
+                    'step': global_step,
+                    'loss': avg_loss,
+                    'agreement': avg_agree,
+                    'sigreg': avg_sigreg,
+                    'accuracy': acc
+                })
+                
+                # Reset step stats
+                step_loss = 0.0
+                step_agree = 0.0
+                step_sigreg = 0.0
+                step_correct = 0
+                step_total = 0
+
+    # Save Metrics
+    print("Saving metrics to metrics.csv...")
+    df = pd.DataFrame(metrics_data)
+    df.to_csv('metrics.csv', index=False)
+
+    # Generate Covariance Plot
+    print("Generating covariance plot...")
+    model.eval()
+    all_logits = []
+    
+    with torch.no_grad():
+        for data in testloader:
+            inputs, _ = data
+            inputs = inputs.view(inputs.size(0), -1).to(DEVICE)
+            outputs = model(inputs)
+            all_logits.append(outputs.cpu())
+    
+    all_logits = torch.cat(all_logits, dim=0)
+    
+    # Compute Covariance of Logits
+    # Center the data
+    all_logits_centered = all_logits - all_logits.mean(dim=0, keepdim=True)
+    # Covariance = (X^T @ X) / (N - 1)
+    covariance_matrix = torch.matmul(all_logits_centered.T, all_logits_centered) / (all_logits_centered.shape[0] - 1)
+    
+    plt.figure(figsize=(10, 8))
+    plt.imshow(covariance_matrix.numpy(), cmap='viridis')
+    plt.colorbar()
+    plt.title('Covariance Matrix of Output Logits')
+    plt.xlabel('Class Index')
+    plt.ylabel('Class Index')
+    plt.savefig('plots/covariance.png')
+    plt.close()
+    
+    print("Training complete.")
+
+if __name__ == '__main__':
+    train()
+```
