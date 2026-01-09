@@ -28,7 +28,7 @@ test_passed: test_jepa.py
 # --- STEP 4: SCIENTIST ---
 train_vector.py: test_passed
 	@echo "🔬 Agent 2: Writing Training Script..."
-	@$(COMPILER) train_vector.py "Context: jepa_core.py is valid. Task: Write a training script for CIFAR-10. Batch=128. Loop: 5 Epochs. Steps per batch: 10. Loss: Agreement + 0.1*SIGReg. Optimizer: Adam(1e-3). LOGGING: Print Epoch, Step, Loss, Agreement, SIGReg, Acc every 50 steps. Save metrics to metrics.csv. Save covariance.png. Wrap main logic in if __name__ == '__main__': train()."
+	@$(COMPILER) train_vector.py "Context: jepa_core.py is valid. Task: Write a training script for CIFAR-10. Batch=128. Loop: 5 Epochs. Steps per batch: 10. Loss: Agreement + 0.1*SIGReg. Optimizer: Adam(1e-3). LOGGING: Print Epoch, Step, Loss, Agreement, SIGReg, Acc every 50 steps. Save metrics to metrics.csv. Save covariance.png. Wrap main logic in if __name__ == '__main__': train(). CRITICAL: OUTPUT PURE CODE wrapped in markdown python blocks."
 
 # --- STEP 5: EXECUTION ---
 run_experiment: train_vector.py

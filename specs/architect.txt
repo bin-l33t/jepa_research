@@ -1,0 +1,9 @@
+TASK:
+Write a PyTorch library file named 'jepa_core.py'.
+It must contain:
+
+SIGRegLoss (following the Math Specs).
+
+VectorFlow (A simple MLP predictor).
+
+Use standard torch modules.

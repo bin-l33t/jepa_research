@@ -1,0 +1,13 @@
+TASK:
+Read 'jepa_core.py' (assume it exists and is imported).
+Write a 'unittest' script named 'test_jepa.py'.
+
+REQUIREMENTS:
+
+Test SIGRegLoss on Gaussian input (torch.randn).
+
+Test SIGRegLoss on Uniform input (torch.rand).
+
+Check VectorFlow output shapes match input shapes.
+
+Import classes from jepa_core.

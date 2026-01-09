@@ -1,0 +1,8 @@
+THEORETICAL CONTEXT:
+Implement SIGRegLoss and VectorFlow.
+
+CRITICAL MATH REQUIREMENT:
+In SIGRegLoss, you MUST normalize the random projection matrix A so columns have norm=1.
+Formula: A = A / A.norm(dim=0)
+
+This ensures the regularization is isotropic.
