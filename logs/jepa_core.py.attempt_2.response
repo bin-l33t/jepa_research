@@ -1,4 +1,4 @@
-# AGENT: ARCHITECT + MATH_CONTEXT
+```python
 class VectorFlow(nn.Module):
     """
     A simple MLP predictor.
@@ -47,3 +47,4 @@ class SIGRegLoss(nn.Module):
         loss = torch.mean(torch.nn.functional.relu(self.target_std - std_proj))
         
         return loss
+```

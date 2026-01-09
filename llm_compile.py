@@ -49,6 +49,26 @@ def extract_python(text):
             
     return None
 
+def clean_code_artifact(code):
+    """
+    Cleans up the generated code artifact:
+    1. Removes the PROMPT/CONTEXT docstring block to keep the file clean.
+    2. Removes any trailing prompt separators (e.g. ----------------).
+    """
+    # Remove the massive docstring block we injected
+    # Matches """\nSPECIFICATIONS AND CONTEXT: ... """
+    code = re.sub(r'"""\nSPECIFICATIONS AND CONTEXT:.*?"""', '', code, flags=re.DOTALL)
+    
+    # Remove the trailing separator line if it exists
+    lines = code.split('\n')
+    cleaned_lines = []
+    for line in lines:
+        if "---------------------------------" in line:
+            continue
+        cleaned_lines.append(line)
+        
+    return '\n'.join(cleaned_lines).strip()
+
 def compile_code(output_file, prompt_files):
     os.makedirs("logs", exist_ok=True)
     
@@ -153,13 +173,13 @@ import math
         log("=" * 60)
         sys.exit(1)
 
-    # 6. Success - Ensure the Header exists
-    # If the model just outputted the class and skipped imports/header, we prepend them
-    if "# AGENT:" not in code:
-        # Re-attach the template header if missing
-        final_code = f"# AGENT: {identity_str}\n# (Restored Header)\n{code}"
-    else:
-        final_code = code
+    # 6. Success - Clean and Save
+    # We clean the artifact to remove the massive prompt injection and invalid separators
+    final_code = clean_code_artifact(code)
+    
+    # Ensure the Header exists if it was stripped
+    if "# AGENT:" not in final_code:
+        final_code = f"# AGENT: {identity_str}\n{final_code}"
 
     with open(output_file, "w") as f:
         f.write(final_code)

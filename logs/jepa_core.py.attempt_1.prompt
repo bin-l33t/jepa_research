@@ -1,0 +1,45 @@
+TASK: COMPLETE THE PYTHON FILE BELOW.
+INSTRUCTIONS:
+1. The file has already started. Output the REST of the code.
+2. You MAY repeat the imports if you wish, or start defining classes/functions immediately.
+3. DO NOT CONVERSE. OUTPUT CODE ONLY.
+
+--- START OF PYTHON FILE ---
+# AGENT: ARCHITECT + MATH_CONTEXT
+"""
+SPECIFICATIONS AND CONTEXT:
+
+--- FILE: specs/architect.txt ---
+TASK:
+Write a PyTorch library file named 'jepa_core.py'.
+It must contain:
+
+SIGRegLoss (following the Math Specs).
+
+VectorFlow (A simple MLP predictor).
+
+Use standard torch modules.
+
+
+--- FILE: specs/math_context.txt ---
+THEORETICAL CONTEXT:
+Implement SIGRegLoss and VectorFlow.
+
+CRITICAL MATH REQUIREMENT:
+In SIGRegLoss, you MUST normalize the random projection matrix A so columns have norm=1.
+Formula: A = A / A.norm(dim=0)
+
+This ensures the regularization is isotropic.
+
+
+"""
+
+import sys
+import os
+import torch
+import torch.nn as nn
+import torch.optim as optim
+# (Add other likely imports based on context)
+import math
+
+# IMPLEMENTATION STARTS HERE

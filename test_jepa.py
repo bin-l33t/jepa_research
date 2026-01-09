@@ -1,4 +1,4 @@
-```python
+# AGENT: VALIDATOR
 import unittest
 from jepa_core import SIGRegLoss, VectorFlow
 
@@ -45,4 +45,3 @@ class TestJEPA(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-```
